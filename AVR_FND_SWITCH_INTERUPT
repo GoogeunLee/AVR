@@ -1,3 +1,9 @@
+/*
+ * ch7_1_int_fnd.c
+ *
+ * Created: 2018-11-02 오후 2:39:04
+ * Author :
+ */ 
 
 #define F_CPU 14745600
 #define DIGIT1 1
@@ -20,9 +26,22 @@ int main(void)
 
 	DDRB = 0xff;	//FND A~H
 	DDRG = 0x0f;	//FND C0,C1,C2,C3 digit
-	DDRD = 0x00;	//PD0~PD3 = INT 0~3 Input
-	EICRA = _BV(ISC01) | _BV(ISC00) | _BV(ISC11) | _BV(ISC10); //상승에지검출
-	EIMSK = _BV(INT0) | _BV(INT1);
+	DDRD = 0xf0;
+	PORTD = 0xf0;
+	
+	DDRD &= 0xf0;
+	DDRE = 0x00;		
+	
+	EICRA = 0xff;	
+	EICRB = 0xff;
+	EIMSK = 0xff; 
+	//BOTH : 00110011
+	
+	//EICRA = 0x0f;	//누를때 켜짐
+	//EIMSK = 0x03;
+	
+	//EICRA = _BV(ISC01) | _BV(ISC00) | _BV(ISC11) | _BV(ISC10); //상승에지검출
+	//EIMSK = _BV(INT0) | _BV(INT1);
 	sei();
     while (1) 
     {
@@ -31,11 +50,35 @@ int main(void)
 }
 ISR(INT0_vect)
 {
-	count++;	
+	count = 1;
 }
 ISR(INT1_vect)
 {
-	count--;
+	count = 2;
+}
+ISR(INT2_vect)
+{
+	count = 3;
+}
+ISR(INT3_vect)
+{
+	count = 4;
+}
+ISR(INT4_vect)
+{
+	count = 5;
+}
+ISR(INT5_vect)
+{
+	count = 6;
+}
+ISR(INT6_vect)
+{
+	count = 7;
+}
+ISR(INT7_vect)
+{
+	count = 8;
 }
 void display_fnd(int val)
 {
@@ -48,7 +91,7 @@ void display_fnd(int val)
 	else
 		n1000 = val / 1000;
 		
-		// <- STOP , ISR(INT0_VECT)
+		// <- STOP , ISR(INT0_VE
 		
 	buff = val % 1000;
 	n100 = buff / 100;
