@@ -1,0 +1,93 @@
+#define F_CPU 14745600U
+#include <avr/io.h>;
+#include <util/delay.h>;
+#include <avr/pgmspace.h> //SRAM이 4K밖에 안되서 어차피 상수는 읽기만하는거라 플래시메모리128KB에 저장
+
+#define DIGIT1 1
+#define DIGIT2 2
+#define DIGIT3 3
+#define DIGIT4 4
+#define HYPHEN 16
+const unsigned char Font[18] PROGMEM = {0x3F, 0x06, 0x5B, 0x4F,0x66, 0x6d,\ 
+	0x7d, 0x07,0x7f,0x6f,0x77,0x7c,0x39,0x5e,0x79,0x71,0x40,0x80};
+
+void display_digit(int position,int number);
+void display_fnd(int val);
+int key_input();
+
+int main(void)
+{
+	int key = 0;
+	int old_key = 0;
+	int val = 0;
+	
+	DDRB = 0xff; //FND A ~ H
+	DDRG = 0x0f; //digit 1,2,3,4
+	PORTG = 0x0f; //digit all off
+	DDRD = 0x00; //push switch 1~8
+	
+	while(1)
+	{
+		key = key_input();
+		if(key != old_key)
+		{
+			if(key == 1)
+				val++;
+			
+			else if(key ==5)
+				val--;
+			
+			old_key = key;
+		}
+		display_fnd(val);
+		
+		if((val == 10000) || (val == -1000))
+			val = 0;
+		
+	}
+}
+void display_digit(int position,int number)
+{
+	PORTG |= 0xff;
+	PORTG &= ~(0x01 << (position - 1));
+	PORTB = pgm_read_byte_near(Font + number);
+//	PORTB = Font[number];
+	_delay_ms(1);
+	
+}
+
+int key_input()
+{
+	int key = 0;
+	int i;
+	for(i =0; i < 8; i++)
+	{
+		if(PIND & (0x01 << i)){
+			key = i + 1;
+			break;
+		}
+	}
+	return key;
+}
+
+void display_fnd(int val)
+{
+	int n1000,n100,n10,n1,buff;	
+	if(val<0)
+	{
+		val = -val;
+		n1000 = HYPHEN; // '-'
+	}
+
+	else
+		n1000 = val/1000;
+	buff = val % 1000;
+	n100 = buff / 100;
+	buff = buff %100;
+	n10 = buff /10;
+	n1 = buff % 10;
+	display_digit(DIGIT1,n1000);
+	display_digit(DIGIT2,n100);
+	display_digit(DIGIT3,n10);
+	display_digit(DIGIT4,n1);
+}
