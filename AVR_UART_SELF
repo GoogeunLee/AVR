@@ -1,0 +1,251 @@
+#define F_CPU 14745600
+#define DIGIT1 1
+#define DIGIT2 2
+#define DIGIT3 3
+#define DIGIT4 4
+#define NEGATIVE 5
+#include <avr/io.h>
+#include <util/delay.h>
+#include <avr/pgmspace.h>
+#include <avr/interrupt.h>
+#include <stdio.h>
+#include <stdlib.h>
+void display_fnd(int val);
+void display_digit(int positon,int number);
+void UART0_init(void);
+void UART0_transmit(char data);
+void UART1_init(void);
+void UART1_transmit(char data);
+//void UART1_string(char * str)
+int key_input(void);
+FILE OUTPUT \
+= FDEV_SETUP_STREAM(UART0_transmit, NULL, _FDEV_SETUP_WRITE);
+
+const char fnd[11] PROGMEM = {0x3f,0x06,0x5b,0x4f,0x66,0x6d,0x7d,0x27,0x7f,0x6f,0x40}; //common Cathode
+volatile int count=0;
+char rx0Cmd[100];
+char rx1Cmd[100];
+volatile int rx0flag;
+volatile int rx1flag;
+int main(void)
+{
+    /* Replace with your application code */
+	int count_old=0;
+	int key;
+	UART0_init(); // UART0 초기화
+	UART1_init();
+	stdout = &OUTPUT; // printf 사용 설정
+	printf("main start!!\r\n");
+
+	printf("%s\r\n",__FUNCTION__);  // 파일 이름 출력
+	printf("%s\r\n",__FILE__);  // 파일 이름 출력
+	printf("%d\r\n",__LINE__);  // 현재 라인수 출력
+	printf("%s\r\n",__TIME__);  // 현재 시간 출력
+	printf("%s\r\n",__DATE__);  // 현재 날짜 출력
+	printf("%s\r\n\n",__TIMESTAMP__);  // 현재 날짜와 시간 동시 출력
+
+	DDRA = 0x00;	//push button polling 
+	DDRB = 0xff;	//FND A~H
+	DDRG = 0x0f;	//FND C0 ~ C3
+	DDRD = 0x00;	//push button 외부인터럽트
+	EICRA = _BV(ISC01) | _BV(ISC00) | _BV(ISC11) | _BV(ISC10); //상승에지검출
+	EIMSK = _BV(INT0) | _BV(INT1);   // 0x03
+
+	sei();
+    while (1) 
+    {
+		key = key_input();
+		if(key != 0)
+		{
+			printf("key : %d\r\n",key);
+		}
+
+		display_fnd(count);
+		if(count != count_old)
+		{
+			printf("count : %d\r\n",count);
+			count_old = count;
+		}
+		if(rx0flag)
+		{
+			int num = atoi(rx0Cmd);
+			count = num;
+			rx0flag = 0;
+			UART1_string(rx0Cmd);
+			UART1_transmit('\r');
+		}
+		if(rx1flag)
+		{
+				printf("recv uart1 : %s\r\n",rx1Cmd);
+				rx1flag=0;
+		}
+    }
+}
+ISR(INT0_vect)
+{
+	count++;	
+}
+ISR(INT1_vect)
+{
+	count--;
+}
+void display_fnd(int val)
+{
+	int n1000,n100,n10,n1,buff;
+	if(val < 0)
+	{
+		val=-val;
+		n1000 = 10;
+	}
+	else
+		n1000 = val / 1000;
+		
+	buff = val % 1000;
+	n100 = buff / 100;
+	buff = buff % 100;
+	n10 = buff /10;
+	n1 = buff % 10;
+	
+	display_digit(DIGIT1,n1000);
+	display_digit(DIGIT2,n100);
+	display_digit(DIGIT3,n10);
+	display_digit(DIGIT4,n1);	
+}
+
+void display_digit(int positon,int number)
+{
+	PORTG |= 0x0f;	//PORTG 상위 4bit는 유지,하위4bit digit 모두 off
+	PORTG &= ~( 0x01 << (positon - 1)); //PORTG 상위 4bit는 유지
+//	PORTB = fnd[number];
+	PORTB = pgm_read_byte_near(fnd + number);
+	_delay_ms(1);
+/*	PORTG = ~0x01   //positon :1  ==> 0xfe
+	PORTG = ~0x02   //positon :2  ==> 0xfd
+	PORTG = ~0x04   //positon :3  ==> 0xfb
+	PORTG = ~0x08   //positon :4  ==> 0xf7
+*/	
+}
+
+void UART0_init(void)
+{
+	UBRR0H = 0x00; // 9,600 보율로 설정
+	UBRR0L = 95;
+	
+	//	UCSR0A |= _BV(U2X0); // 2배속 모드
+	// 비동기, 8비트 데이터, 패리티 없음, 1비트 정지 비트 모드
+	//	UCSR0C |= 0x06;
+	UCSR0C |= _BV(UCSZ01) | _BV(UCSZ00);
+	UCSR0B |= _BV(RXEN0); // 송수신 가능
+	UCSR0B |= _BV(TXEN0);
+	UCSR0B |= _BV(RXCIE0);	//RX Complete Interrupt Enable
+}
+void UART1_init(void)
+{
+	UBRR1H = 0x00; // 9,600 보율로 설정
+	UBRR1L = 95;
+	
+	//	UCSR0A |= _BV(U2X0); // 2배속 모드
+	// 비동기, 8비트 데이터, 패리티 없음, 1비트 정지 비트 모드
+	//	UCSR0C |= 0x06;
+	UCSR1C |= _BV(UCSZ11) | _BV(UCSZ10);
+	UCSR1B |= _BV(RXEN1); // 송수신 가능
+	UCSR1B |= _BV(TXEN1);
+	UCSR1B |= _BV(RXCIE1);	//RX Complete Interrupt Enable
+}
+
+void UART0_transmit(char data)
+{
+	while( !(UCSR0A & (1 << UDRE0)) ); // 송신 가능 대기
+	UDR0 = data; // 데이터 전송
+}
+void UART1_transmit(char data)
+{
+	while( !(UCSR1A & (1 << UDRE1)) ); // 송신 가능 대기
+	UDR1 = data; // 데이터 전송
+}
+void UART0_string(char * str)
+{
+	while(*str != '\0')
+	{
+		UART0_transmit(*str);
+		str++;
+	}
+}
+void UART1_string(char * str)
+{
+	while(*str != '\0')
+	{
+		UART1_transmit(*str);
+		str++;
+	}
+}
+ISR(USART0_RX_vect)
+{
+	static int i=0;
+	rx0Cmd[i] = UDR0;
+	//	UDR0 = rx0Cmd[i];
+	//	UART0_transmit(rx0Cmd[i]);
+	//	return;
+	if(rx0Cmd[i] == '\r')
+	{
+		rx0Cmd[i]='\0';
+		rx0flag = 1;
+		i=0;
+	}
+	else
+	i++;
+}
+
+ISR(USART1_RX_vect)
+{
+	static int i=0;
+	rx1Cmd[i] = UDR1;
+	//	UDR0 = rx0Cmd[i];
+	//	UART0_transmit(rx0Cmd[i]);
+	//	return;
+	if(rx1Cmd[i] == '\r')
+	{
+		rx1Cmd[i]='\0';
+		rx1flag = 1;
+		i=0;
+	}
+	else
+	i++;
+}
+
+int key_input(void)			// input key KEY1 - KEY4
+{
+	static unsigned char key_flag = 0;
+	unsigned char key;
+	key = PINA & 0xff;				// any key pressed ?
+	if(key == 0x00)  //key all off
+	{
+		if(key_flag == 0)
+			return 0;
+		else
+		{
+		//	_delay_ms(20);
+			key_flag = 0;
+			return 0;
+		}
+	}
+	else							// if key input, check continuous key
+	{
+		if(key_flag != 0)			// if continuous key, treat as no key input
+			return 0;
+		else						// if new key, beep and delay for debounce
+		{
+			//	_delay_ms(20);
+			key_flag = 1;
+			if(key == 0x01) key = 1;
+			else if(key == 0x02) key = 2;
+			else if(key == 0x04) key = 3;
+			else if(key == 0x08) key = 4;
+			else if(key == 0x10) key = 5;
+			else if(key == 0x20) key = 6;
+			else if(key == 0x40) key = 7;
+			else if(key == 0x80) key = 8;
+			return key;
+		}
+	}
+}
