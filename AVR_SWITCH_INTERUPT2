@@ -1,0 +1,90 @@
+
+#define F_CPU 14745600
+#define DIGIT1 1
+#define DIGIT2 2
+#define DIGIT3 3
+#define DIGIT4 4
+#define NEGATIVE 5
+#include <avr/io.h>
+#include <util/delay.h>
+#include <avr/pgmspace.h>
+#include <avr/interrupt.h>
+
+#define bit_set(sfr,bit) (_SFR_BYTE(sfr) |= _BV(bit))
+#define bit_clear(sfr,bit) (_SFR_BYTE(sfr) &= ~_BV(bit))
+
+void display_fnd(int val);
+void display_digit(int positon,int number);
+const char fnd[11] PROGMEM = {0x3f,0x06,0x5b,0x4f,0x66,0x6d,0x7d,0x27,0x7f,0x6f,0x40}; //common Cathode
+volatile int count=0; //동기화기법
+int main(void)
+{
+    /* Replace with your application code */
+	DDRA = 0xff; //LED 0~7
+	PORTA = 0xff; //LED all off
+	
+	DDRB = 0xff;	//FND A~H
+	DDRG = 0x0f;	//FND C0,C1,C2,C3 digit
+	DDRD = 0x00;
+	
+	EICRA = _BV(ISC01) | _BV(ISC00) | _BV(ISC11) | _BV(ISC10); //상승에지검출
+	EIMSK = _BV(INT0) | _BV(INT1);
+	sei();
+    while (1) 
+    {
+		display_fnd(count);
+    }
+}
+ISR(INT0_vect)
+{
+	count++;
+	//PORTA = 0xfe;
+	//PORTA = PORTA & 0xfe;
+	//PORTA = PORTA & ~_BV(PORTA0);
+	bit_clear(PORTA,PORTA0);
+}
+ISR(INT1_vect)
+{
+	count--;
+	//PORTA = PORTA |_BV(PORTA0);
+	bit_set(PORTA,PORTA0);
+}
+void display_fnd(int val)
+{
+	int n1000,n100,n10,n1,buff;
+	if(val < 0)
+	{
+		val=-val;
+		n1000 = 10;
+	}
+	else
+		n1000 = val / 1000;
+		
+		// <- STOP , ISR(INT0_VE
+		
+	buff = val % 1000;
+	n100 = buff / 100;
+	buff = buff % 100;
+	n10 = buff /10;
+	n1 = buff % 10;
+	
+	display_digit(DIGIT1,n1000);
+	display_digit(DIGIT2,n100);
+	display_digit(DIGIT3,n10);
+	display_digit(DIGIT4,n1);	
+}
+
+void display_digit(int positon,int number)
+{
+	PORTG |= 0x0f;	//PORTG 상위 4bit는 유지,하위4bit digit 모두 off
+	PORTG &= ~( 0x01 << (positon - 1)); //PORTG 상위 4bit는 유지
+//	PORTB = fnd[number];
+	PORTB = pgm_read_byte_near(fnd + number);
+	_delay_ms(1);
+/*	PORTG = ~0x01   //positon :1  ==> 0xfe
+	PORTG = ~0x02   //positon :2  ==> 0xfd
+	PORTG = ~0x04   //positon :3  ==> 0xfb
+	PORTG = ~0x08   //positon :4  ==> 0xf7
+*/	
+
+}
