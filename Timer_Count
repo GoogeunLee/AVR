@@ -23,7 +23,7 @@ int main(void)
 	DDRG = 0x0f;	//common 0~3
 	TCCR0 = 0x07;  
 	TIMSK = 0x01; //overflow interrupt enable
-	TCNT0 = 242; //1ms/69.44us = 14,  256-14 = 252
+	TCNT0 = 242; //1ms/69.44us = 14,  256-14 = 242
 	TIFR = 0;
 	sei();
     while (1) 
