@@ -1,0 +1,79 @@
+/*		print_5d(1234); UART0_string("\r\n");
+		print_2d1(12.3); UART0_string("\r\n");
+		print_2hex(48); UART0_string("\r\n");
+		print_8bin(0X30); UART0_string("\r\n");
+*/
+void print_5d(unsigned int number)                /* display 4-digit decimal number */
+{ 	unsigned int i;
+	unsigned char flag;
+
+	flag = 0;
+	i = number/10000;                              // 10^3
+	if(i == 0) UART0_transmit(' ');
+	else {     UART0_transmit(i + '0');
+		flag = 1;
+	}
+	number = number % 10000;                       // 10^2
+	i = number/1000;
+	if((i == 0) && (flag == 0))
+	UART0_transmit(' ');
+	else {     UART0_transmit(i + '0');
+		flag = 1;
+	}
+	number = number % 1000;                       // 10^2
+	i = number/100;
+	if((i == 0) && (flag == 0))
+	UART0_transmit(' ');
+	else {     UART0_transmit(i + '0');
+		flag = 1;
+	}
+
+	number = number % 100;                        // 10^1
+	i = number/10;
+	if((i == 0) && (flag == 0))
+	UART0_transmit(' ');
+	else {     UART0_transmit(i + '0');
+		flag = 1;
+	}
+
+	i = number % 10;                              // 10^0
+	UART0_transmit(i + '0');
+}
+void print_2d1(double number)		        /* floating-point number xx.x */
+{ unsigned int i, j;
+
+	j = (int)(number*10. + 0.5);
+	i = j / 100;					// 10^1
+	if(i == 0) UART0_transmit(' ');
+	else       UART0_transmit(i + '0');
+
+	j = j % 100;					// 10^0
+	i = j / 10;
+	UART0_transmit(i + '0');
+	UART0_transmit('.');
+
+	i = j % 10;					// 10^-1
+	UART0_transmit(i + '0');
+}
+void print_2hex(unsigned char number)             /* display 2-digit hex number */
+{ unsigned char i;
+
+	i = (number >> 4) & 0x0F;                     // 16^1
+	if(i <= 9) UART0_transmit(i + '0');
+	else       UART0_transmit(i - 10 + 'A');
+
+	i = number & 0x0F;                            // 16^0
+	if(i <= 9) UART0_transmit(i + '0');
+	else       UART0_transmit(i - 10 + 'A');
+}
+void print_8bin(unsigned char number)             /* display 8-bit binary number */
+{
+	UART0_transmit(((number >> 7) & 0x01) + '0');       // 2^7
+	UART0_transmit(((number >> 6) & 0x01) + '0');       // 2^6
+	UART0_transmit(((number >> 5) & 0x01) + '0');       // 2^5
+	UART0_transmit(((number >> 4) & 0x01) + '0');       // 2^4
+	UART0_transmit(((number >> 3) & 0x01) + '0');       // 2^3
+	UART0_transmit(((number >> 2) & 0x01) + '0');       // 2^2
+	UART0_transmit(((number >> 1) & 0x01) + '0');       // 2^1
+	UART0_transmit((number & 0x01) + '0');              // 2^0
+}
