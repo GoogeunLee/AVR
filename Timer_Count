@@ -1,0 +1,96 @@
+#define F_CPU 14745600
+#define DIGIT1 1
+#define DIGIT2 2
+#define DIGIT3 3
+#define DIGIT4 4
+#include <avr/io.h>
+#include <util/delay.h>
+#include <avr/interrupt.h>
+//#include <avr/pgmspace.h>
+
+void display_fnd(int val);
+void display_digit(int positon,int number);
+//const char fnd[10] PROGMEM = {0x3f,0x06,0x5b,0x4f,0x66,0x6d,0x7d,0x27,0x7f,0x6f}; //common Cathode
+char fnd[10] = {0x3f,0x06,0x5b,0x4f,0x66,0x6d,0x7d,0x27,0x7f,0x6f}; //common Cathode	
+volatile int t_cnt, m_cnt,sec2_flag;
+int main(void)
+{
+    /* Replace with your application code */
+//	int cnt = 0;
+	DDRA = 0xff;	//LED 0~7
+	PORTA = 0x00;	
+	DDRB = 0xff;	//FND A~H
+	DDRG = 0x0f;	//common 0~3
+	TCCR0 = 0x07;  
+	TIMSK = 0x01; //overflow interrupt enable
+	TCNT0 = 242; //1ms/69.44us = 14,  256-14 = 252
+	TIFR = 0;
+	sei();
+    while (1) 
+    {
+		display_fnd(m_cnt);
+//		_delay_ms(1000);
+		if(sec2_flag)	//flag함수 만들어서 사용해야함.
+		{
+			PORTA ^= 0x08;
+			sec2_flag = 0;
+		}
+     }
+}
+ISR(TIMER0_OVF_vect)	//1ms
+{
+	TCNT0 = 242;
+	t_cnt++;
+
+	if(!(t_cnt%10))   //10ms
+	{
+		PORTA ^= 0x01;
+	}
+	if(!(t_cnt%100))   //100ms
+	{
+		PORTA ^= 0x02;
+	}
+	if(!(t_cnt%1000))   //1sec
+	{
+		PORTA ^= 0x04;
+		m_cnt++;
+	}
+	if(t_cnt >= 2000)   //2sec
+	{
+		t_cnt =0;
+//		PORTA ^= 0x08;
+		sec2_flag = 1;
+	}	
+}
+
+void display_fnd(int val)
+{
+	int n1000,n100,n10,n1,buff;
+	n1000 = val / 1000;
+	buff = val % 1000;
+	n100 = buff / 100;
+	buff = buff % 100;
+	n10 = buff /10;
+	n1 = buff % 10;
+			
+	display_digit(DIGIT1,n1000);
+	display_digit(DIGIT2,n100);
+	display_digit(DIGIT3,n10);
+	display_digit(DIGIT4,n1);	
+}
+
+void display_digit(int positon,int number)
+{
+	PORTG |= 0x0f;	//PORTG 상위 4bit는 유지,하위4bit digit 모두 off
+	PORTG &= ~( 0x01 << (positon - 1)); //PORTG 상위 4bit는 유지
+//	PORTB = fnd[number];
+//	PORTB = pgm_read_byte_near(fnd + number);
+	PORTB = fnd[number];
+	_delay_ms(1);
+/*	PORTG = ~0x01   //positon :1  ==> 0xfe
+	PORTG = ~0x02   //positon :2  ==> 0xfd
+	PORTG = ~0x04   //positon :3  ==> 0xfb
+	PORTG = ~0x08   //positon :4  ==> 0xf7
+*/	
+
+}
