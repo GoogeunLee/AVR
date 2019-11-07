@@ -1,3 +1,10 @@
+/*
+ * ch7_1_int_fnd.c
+ *
+ * Created: 2018-11-02 오후 2:39:04
+ * Author : kcci
+ */ 
+
 #define F_CPU 14745600
 #define DIGIT1 1
 #define DIGIT2 2
@@ -14,9 +21,10 @@ void display_fnd(int val);
 void display_digit(int positon,int number);
 void UART0_init(void);
 void UART0_transmit(char data);
+void UART0_string(char*str);
 void UART1_init(void);
 void UART1_transmit(char data);
-//void UART1_string(char * str)
+void UART1_string(char*str);
 int key_input(void);
 FILE OUTPUT \
 = FDEV_SETUP_STREAM(UART0_transmit, NULL, _FDEV_SETUP_WRITE);
@@ -24,8 +32,8 @@ FILE OUTPUT \
 const char fnd[11] PROGMEM = {0x3f,0x06,0x5b,0x4f,0x66,0x6d,0x7d,0x27,0x7f,0x6f,0x40}; //common Cathode
 volatile int count=0;
 char rx0Cmd[100];
-char rx1Cmd[100];
 volatile int rx0flag;
+char rx1Cmd[100];
 volatile int rx1flag;
 int main(void)
 {
@@ -33,7 +41,7 @@ int main(void)
 	int count_old=0;
 	int key;
 	UART0_init(); // UART0 초기화
-	UART1_init();
+	UART1_init(); // UART1 초기화
 	stdout = &OUTPUT; // printf 사용 설정
 	printf("main start!!\r\n");
 
@@ -76,9 +84,10 @@ int main(void)
 		}
 		if(rx1flag)
 		{
-				printf("recv uart1 : %s\r\n",rx1Cmd);
-				rx1flag=0;
+			printf("recv uart1 : %s\r\n",rx1Cmd);
+			rx1flag=0;
 		}
+		
     }
 }
 ISR(INT0_vect)
@@ -139,43 +148,17 @@ void UART0_init(void)
 	UCSR0B |= _BV(TXEN0);
 	UCSR0B |= _BV(RXCIE0);	//RX Complete Interrupt Enable
 }
-void UART1_init(void)
-{
-	UBRR1H = 0x00; // 9,600 보율로 설정
-	UBRR1L = 95;
-	
-	//	UCSR0A |= _BV(U2X0); // 2배속 모드
-	// 비동기, 8비트 데이터, 패리티 없음, 1비트 정지 비트 모드
-	//	UCSR0C |= 0x06;
-	UCSR1C |= _BV(UCSZ11) | _BV(UCSZ10);
-	UCSR1B |= _BV(RXEN1); // 송수신 가능
-	UCSR1B |= _BV(TXEN1);
-	UCSR1B |= _BV(RXCIE1);	//RX Complete Interrupt Enable
-}
 
 void UART0_transmit(char data)
 {
 	while( !(UCSR0A & (1 << UDRE0)) ); // 송신 가능 대기
 	UDR0 = data; // 데이터 전송
 }
-void UART1_transmit(char data)
-{
-	while( !(UCSR1A & (1 << UDRE1)) ); // 송신 가능 대기
-	UDR1 = data; // 데이터 전송
-}
 void UART0_string(char * str)
 {
 	while(*str != '\0')
 	{
 		UART0_transmit(*str);
-		str++;
-	}
-}
-void UART1_string(char * str)
-{
-	while(*str != '\0')
-	{
-		UART1_transmit(*str);
 		str++;
 	}
 }
@@ -196,6 +179,35 @@ ISR(USART0_RX_vect)
 	i++;
 }
 
+// 복붙
+
+void UART1_init(void)
+{
+	UBRR1H = 0x00; // 9,600 보율로 설정
+	UBRR1L = 95;
+	
+	//	UCSR0A |= _BV(U2X0); // 2배속 모드
+	// 비동기, 8비트 데이터, 패리티 없음, 1비트 정지 비트 모드
+	//	UCSR0C |= 0x06;
+	UCSR1C |= _BV(UCSZ11) | _BV(UCSZ10);
+	UCSR1B |= _BV(RXEN1); // 송수신 가능
+	UCSR1B |= _BV(TXEN1);
+	UCSR1B |= _BV(RXCIE1);	//RX Complete Interrupt Enable
+}
+
+void UART1_transmit(char data)
+{
+	while( !(UCSR1A & (1 << UDRE1)) ); // 송신 가능 대기
+	UDR1 = data; // 데이터 전송, 송신버퍼
+}
+void UART1_string(char * str)
+{
+	while(*str != '\0')
+	{
+		UART1_transmit(*str);
+		str++;
+	}
+}
 ISR(USART1_RX_vect)
 {
 	static int i=0;
@@ -210,9 +222,8 @@ ISR(USART1_RX_vect)
 		i=0;
 	}
 	else
-	i++;
+		i++;
 }
-
 int key_input(void)			// input key KEY1 - KEY4
 {
 	static unsigned char key_flag = 0;
